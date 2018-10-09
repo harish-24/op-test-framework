@@ -84,14 +84,19 @@ class OpTestSystem(object):
     #
 
     def __init__(self,
-                 bmc=None, host=None,
+                 bmc=None, host=None, hmc=None,
                  prompt=None,
                  state=OpSystemState.UNKNOWN):
         self.bmc = self.cv_BMC = bmc
+        self.hmc = self.cv_HMC = hmc
         self.cv_HOST = host
         self.cv_IPMI = bmc.get_ipmi()
         self.rest = self.bmc.get_rest_api()
-        self.console = self.bmc.get_host_console()
+        if hmc == None:
+            self.console = self.bmc.get_host_console()
+        else:
+            # Skipping HMC console
+            self.console = None
         self.util = OpTestUtil()
         self.prompt = prompt # build_prompt located in OpTestUtil
         # system console state tracking, reset on boot and state changes, set when valid
@@ -1184,10 +1189,12 @@ class OpTestFSPSystem(OpTestSystem):
     def __init__(self,
                  host=None,
                  bmc=None,
+                 hmc=None,
                  state=OpSystemState.UNKNOWN):
         bmc.fsp_get_console()
         super(OpTestFSPSystem, self).__init__(host=host,
                                               bmc=bmc,
+                                              hmc=hmc,
                                               state=state)
 
     def sys_wait_for_standby_state(self, i_timeout=120):

@@ -12,6 +12,7 @@ from common.OpTestMambo import OpTestMambo
 import common.OpTestSystem
 import common.OpTestHost
 from common.OpTestIPMI import OpTestIPMI, OpTestSMCIPMI
+from common.OpTestHMC import OpTestHMC
 from common.OpTestOpenBMC import HostManagement
 from common.OpTestWeb import OpTestWeb
 from common.OpTestUtil import OpTestUtil
@@ -202,7 +203,7 @@ def get_parser():
     bmcgroup = parser.add_argument_group('BMC',
                                          'Options for Service Processor')
     # The default supported BMC choices in --bmc-type
-    bmcChoices = ['AMI', 'SMC', 'FSP', 'OpenBMC', 'qemu', 'mambo']
+    bmcChoices = ['AMI', 'SMC', 'FSP', 'FSP_PHYP', 'OpenBMC', 'qemu', 'mambo']
     # Loop through any addons let it append the extra bmcChoices
     for opt in optAddons:
         bmcChoices = optAddons[opt].addBMCType(bmcChoices)
@@ -301,6 +302,15 @@ def get_parser():
     kernelcmdgroup.add_argument("--remove-kernel-args",
                                 help="Kernel commandline option to be removed",
                                 default="")
+    hmcgroup = parser.add_argument_group('HMC',
+                                         'HMC CLI commands')
+    hmcgroup.add_argument("--hmc-ip", help="HMC address")
+    hmcgroup.add_argument("--hmc-username", help="SSH username for HMC")
+    hmcgroup.add_argument("--hmc-password", help="SSH password for HMC")
+    hmcgroup.add_argument("--system-name", help="Managed system/server name in HMC", default=None)
+    hmcgroup.add_argument("--lpar-name", help="Lpar name as provided in HMC", default=None)
+    hmcgroup.add_argument("--lpar-prof", help="Lpar profile provided in HMC", default=None)
+    hmcgroup.add_argument("--lpar-vios", help="Lpar VIOS to boot before other LPARS", default=None)
 
     return parser
 
@@ -569,6 +579,33 @@ class OpTestConfiguration():
                     host=host,
                 )
                 ipmi.set_system(self.op_system)
+            elif self.args.bmc_type in ['FSP_PHYP']:
+                hmc = None
+                if all(v is not None for v in [self.args.hmc_ip, self.args.hmc_username, self.args.hmc_password]):
+                    hmc = OpTestHMC(self.args.hmc_ip,
+                                    self.args.hmc_username,
+                                    self.args.hmc_password,
+                                    managed_system=self.args.system_name,
+                                    lpar_name=self.args.lpar_name,
+                                    lpar_vios=self.args.lpar_vios,
+                                    lpar_prof=self.args.lpar_prof,
+                                    lpar_user=self.args.host_user,
+                                    lpar_password=self.args.host_password,
+                                    logfile=self.logfile
+                    )
+                else:
+                    raise Exception("HMC IP, username and password is required")
+                bmc = OpTestFSP(self.args.bmc_ip,
+                                self.args.bmc_username,
+                                self.args.bmc_password,
+                )
+                self.op_system = common.OpTestSystem.OpTestFSPSystem(
+                    state=self.startState,
+                    bmc=bmc,
+                    host=host,
+                    hmc=hmc,
+                )
+                hmc.set_system(self.op_system)
             elif self.args.bmc_type in ['OpenBMC']:
                 ipmi = OpTestIPMI(self.args.bmc_ip,
                               self.args.bmc_usernameipmi,
@@ -653,6 +690,8 @@ class OpTestConfiguration():
 
     def bmc(self):
         return self.op_system.bmc
+    def hmc(self):
+        return self.op_system.hmc
     def system(self):
         return self.op_system
     def host(self):

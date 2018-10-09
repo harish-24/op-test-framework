@@ -266,3 +266,52 @@ class OpSolMonitorThread3(threading.Thread):
 
     def console_terminate(self):
         self.c_terminate = True
+
+
+class OpSolMonitorThreadVM(threading.Thread):
+    '''
+    This thread just monitors the SOL console for any failures when tests are running
+    on other SSH threads. This thread can be terminated by just calling console_terminate
+    from parent process.
+    '''
+    def __init__(self):
+        threading.Thread.__init__(self)
+        conf = OpTestConfiguration.conf
+        self.system = conf.system()
+        self.hmc = self.system.hmc
+        self.hmc.poweron_lpar()
+        self.c = self.hmc.get_console()
+        self.c_terminate = False
+
+    def run(self):
+        log.info("Starting PowerVM console monitoring thread")
+        while True:
+            try:
+                rc = self.c.expect(["\n", "Connection has closed"], timeout=60)
+                if rc == 1:
+                    log.info("LPAR console is gone")
+                    while True:
+                        if self.hmc.check_vterm():
+                            time.sleep(5)
+                            log.debug("Waiting now!")
+                        else:
+                            self.c = self.hmc.get_console()
+                            break
+            except pexpect.TIMEOUT:
+                pass
+            except pexpect.EOF:
+                log.info("LPAR console is gone")
+                while True:
+                    if self.hmc.check_vterm():
+                        time.sleep(5)
+                        log.debug("Waiting now!")
+                    else:
+                        self.c = self.hmc.get_console()
+                        break
+
+            if self.c_terminate:
+                break
+        log.debug("Terminating SOL monitoring thread")
+
+    def console_terminate(self):
+        self.c_terminate = True

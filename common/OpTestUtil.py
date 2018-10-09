@@ -1036,7 +1036,7 @@ class OpTestUtil():
             except Exception as e:
               echo_rc = -1
             if echo_rc == 0:
-              if whoami in "root":
+              if "root" in whoami:
                 log.debug("OpTestSystem now running as root")
               else:
                 raise ConsoleSettings(before=pty.before, after=pty.after,
@@ -1116,12 +1116,12 @@ class OpTestUtil():
                   msg="Getting login and sudo not successful, probably connection or credential issue, retry")
         # now just timeout
         pty.sendline()
-        rc = pty.expect(['login: $', ".*#$", ".*# $", ".*\$", 'Petitboot', pexpect.TIMEOUT, pexpect.EOF], timeout=10)
+        rc = pty.expect(['login: $', ".*#$", ".*# $", ".*\$", 'Petitboot', '~>', pexpect.TIMEOUT, pexpect.EOF], timeout=10)
         if rc == 0:
           track_obj.PS1_set, track_obj.LOGIN_set = self.get_login(system_obj.cv_HOST, term_obj, pty, self.build_prompt(system_obj.prompt))
           track_obj.PS1_set, track_obj.SUDO_set = self.get_sudo(system_obj.cv_HOST, term_obj, pty, self.build_prompt(system_obj.prompt))
           return
-        if rc in [1,2,3]:
+        if rc in [1,2,3,5]:
           track_obj.LOGIN_set = track_obj.PS1_set = self.set_PS1(term_obj, pty, self.build_prompt(system_obj.prompt))
           track_obj.PS1_set, track_obj.SUDO_set = self.get_sudo(system_obj.cv_HOST, term_obj, pty, self.build_prompt(system_obj.prompt))
           return
